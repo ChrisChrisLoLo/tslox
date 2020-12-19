@@ -1,22 +1,26 @@
+import {Scanner} from './Scanner';
+import {Token} from './Token';
+
 let hadError: boolean = false;
 
 function runInput(): void {}
 
-function run(src: string): void {
-  hadError = false;
+function run(source: string): void {
+    hadError = false;
 
-  const tokens: string[] = src.split("");
+    const scanner: Scanner = new Scanner(source);
+    const tokens: Token[] = scanner.scanTokens();
 
-  for (const token in tokens) {
-    console.log(token);
-  }
+    for (const token in tokens) {
+        console.log(token);
+    }
 }
 
 export function error(line: number, message: string): void {
-  report(line, "", message);
+    report(line, "", message);
 }
 
 function report(line: number, where: string, message: string) {
-  console.error(`[line ${line}] Error ${where} : ${message}`);
-  hadError = true;
+    console.error(`[line ${line}] Error ${where} : ${message}`);
+    hadError = true;
 }

@@ -11,7 +11,26 @@ export class Scanner {
     #current: number = 0;
     #line: number = 1;
 
-    constructor(source: string, tokens: Token[]){
+    static keywords: object = {
+        "and":    TokenType.AND,
+        "class":  TokenType.CLASS,
+        "else":   TokenType.ELSE,
+        "false":  TokenType.FALSE,
+        "for":    TokenType.FOR,
+        "fun":    TokenType.FUN,
+        "if":     TokenType.IF,
+        "nil":    TokenType.NIL,
+        "or":     TokenType.OR,
+        "print":  TokenType.PRINT,
+        "return": TokenType.RETURN,
+        "super":  TokenType.SUPER,
+        "this":   TokenType.THIS,
+        "true":   TokenType.TRUE,
+        "var":    TokenType.VAR,
+        "while":  TokenType.WHILE,
+    }
+
+    constructor(source: string){
         this.#source = source;
     }
 
@@ -62,8 +81,24 @@ export class Scanner {
                     this.addToken(TokenType.SLASH);
                 }
                 break;
+            case ' ':
+            case '\r':
+            case '\t':
+                // Ignore whitespace.
+                break;
+        
+            case '\n':
+                this.#line++;
+                break;
+            case '"': this.string(); break;
             default:
-                error(this.#line, "Unexpected character.");
+                if (this.isDigit(char)){
+                    this.number();
+                } else if (this.isAlpha(char)){
+                    this.identifier();
+                } else {
+                    error(this.#line, "Unexpected character.");
+                }
                 break;
         }
     }
@@ -73,7 +108,7 @@ export class Scanner {
         return this.#source[this.#current - 1];
     }
 
-    private addToken(type: TokenType, literal: object|null = null): void{
+    private addToken(type: TokenType, literal: any = null): void{
         // MAY HAVE WRONG INDICES
         const text: String = this.#source.substring(this.#start, this.#current);
         this.#tokens.push(new Token(type, text, literal, this.#line));
@@ -87,8 +122,68 @@ export class Scanner {
         return true;
     }
 
-    private peek(): string{
-        if (this.isAtEnd()) return "\0";
+    private peek(): string {
+        if (this.isAtEnd()) return '\0';
         return this.#source.charAt(this.#current);
     }
+
+    private peekNext(): string {
+        if (this.#current + 1  >= this.#source.length) return '\0';
+        return this.#source.charAt(this.#current + 1);
+    }
+
+    private string(): void {
+        while (this.peek() != '"' && !this.isAtEnd()){
+            if (this.peek() == '\n') this.#line++;
+            this.advance();
+        }
+
+        if (this.isAtEnd()) {
+            error(this.#line, "Unterminated string.");
+            return;
+        }
+
+        // The closing ".
+        this.advance();
+
+        // Trim the surrounding quotes.
+        const value: string = this.#source.substring(this.#start + 1, this.#current - 1);
+        this.addToken(TokenType.STRING, value);
+    }
+
+    private identifier(): void {
+        while (this.isAlphaNumeric(this.peek())) this.advance();
+        const text: string = this.#source.substring(this.#start, this.#current);
+        let type: TokenType = (Scanner.keywords as any)[text];
+        if (type == null) type = TokenType.IDENTIFIER;
+        this.addToken(type);
+    }
+
+    private number(): void {
+        while (this.isDigit(this.peek())) this.advance();
+
+        // Look for a fractional part.
+        if (this.peek() == '.' && this.isDigit(this.peekNext())){
+            // Consume the "."
+            this.advance();
+            while (this.isDigit(this.peek())) this.advance();
+        }
+
+        this.addToken(TokenType.NUMBER, parseFloat(this.#source.substring(this.#start,this.#current)));
+    }
+
+    private isDigit(char: string): boolean {
+        return char >= '0' && char <= '9';
+    }
+
+    private isAlpha(char: string): boolean {
+        return  (char >= 'a' && char <= 'z') ||
+                (char >= 'A' && char <= 'Z') ||
+                char == '_';
+    }
+
+    private isAlphaNumeric(char: string): boolean {
+        return this.isAlpha(char) || this.isDigit(char);
+    }
+
 }
